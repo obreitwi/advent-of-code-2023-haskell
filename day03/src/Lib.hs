@@ -59,7 +59,7 @@ part1inner s = do
   print . sum . map value $ numAdjacent
 
 part2inner :: SchematicScanner -> IO ()
-part2inner SchematicS{..} = do
+part2inner SchematicS {..} = do
   let gears = filterGears symbols numbers
   -- mapM_ print gears
   print . sum . map ratio $ gears
@@ -108,15 +108,15 @@ scanSchematic prev@SchematicS {..} c = case c of
   '\n' -> Just ((advanceRow . noteNumber) prev)
   '.' -> Just ((advanceCol . noteNumber) prev)
   _
-    | isDigit c ->
-        Just
-          ( advanceCol
-              SchematicS
-                { scanCurrentNumber = scanCurrentNumber * 10 + digitToInt c,
-                  ..
-                }
-          )
+    | isDigit c -> Just ((advanceCol . numberInProgress c) prev)
   _ -> Just ((advanceCol . noteNumber . noteSymbol c) prev)
+
+numberInProgress :: Char -> SchematicScanner -> SchematicScanner
+numberInProgress c SchematicS {..} =
+  SchematicS
+    { scanCurrentNumber = scanCurrentNumber * 10 + digitToInt c,
+      ..
+    }
 
 advanceCol :: SchematicScanner -> SchematicScanner
 advanceCol SchematicS {..} =
