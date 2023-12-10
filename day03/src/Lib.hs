@@ -5,6 +5,7 @@
 module Lib
   ( part0,
     part1,
+    part2,
   )
 where
 
@@ -23,6 +24,9 @@ part0 = do
   TIO.putStr "\nTesting part 1 (expecting 4361): "
   either error (part1inner . snd) $ parseOnly (parseSchematic <* endOfInput) s
 
+  TIO.putStr "\nTesting part 2 (expecting 467835): "
+  either error (part2inner . snd) $ parseOnly (parseSchematic <* endOfInput) s
+
   return ()
 
 part1 :: IO ()
@@ -33,18 +37,32 @@ part1 = do
   either error (part1inner . snd) $ parseOnly (parseSchematic <* endOfInput) s
   return ()
 
+part2 :: IO ()
+part2 = do
+  s <- TIO.readFile "input.txt"
+  -- print . ensureParsed $ parse parseSchematic s
+  TIO.putStr "\nPart 2: "
+  either error (part2inner . snd) $ parseOnly (parseSchematic <* endOfInput) s
+  return ()
+
 part1inner :: SchematicScanner -> IO ()
 part1inner s = do
-  TIO.putStrLn "Symbols:"
-  _ <- mapM print . reverse . symbols $ s
-  TIO.putStrLn "\nNumbers:"
-  _ <- mapM print . reverse . numbers $ s
-  TIO.putStrLn ""
+  -- TIO.putStrLn "Symbols:"
+  -- mapM_ print . reverse . symbols $ s
+  -- TIO.putStrLn "\nNumbers:"
+  -- mapM_ print . reverse . numbers $ s
+  -- TIO.putStrLn ""
   let numAdjacent = filterSchematic s
-  TIO.putStrLn "\nAdjacent numbers:"
-  _ <- mapM print . reverse $ numAdjacent
-  TIO.putStrLn ""
+  -- TIO.putStrLn "\nAdjacent numbers:"
+  -- mapM_ print . reverse $ numAdjacent
+  -- TIO.putStrLn ""
   print . sum . map value $ numAdjacent
+
+part2inner :: SchematicScanner -> IO ()
+part2inner SchematicS{..} = do
+  let gears = filterGears symbols numbers
+  -- mapM_ print gears
+  print . sum . map ratio $ gears
 
 data SchematicNumber = NumberS
   { value :: Int,
@@ -79,6 +97,8 @@ emptySchematic =
       symbols = [],
       numbers = []
     }
+
+data Gear = Gear Int Int deriving (Show)
 
 parseSchematic :: Parser (T.Text, SchematicScanner)
 parseSchematic = runScanner emptySchematic scanSchematic
@@ -153,6 +173,22 @@ ensureParsed r = r
 
 filterSchematic :: SchematicScanner -> [SchematicNumber]
 filterSchematic SchematicS {..} = filterAdjacentNumbers symbols numbers
+
+filterPotentialGears :: [SchematicSymbol] -> [SchematicSymbol]
+filterPotentialGears = filter $ ('*' ==) . symbol
+
+filterGears :: [SchematicSymbol] -> [SchematicNumber] -> [Gear]
+filterGears symbols numbers = map buildGear actualGears
+  where
+    potentialGears = filterPotentialGears symbols
+
+    actualGears = filter ((2 ==) . length) $ map (\s -> filterAdjacentNumbers [s] numbers) potentialGears
+
+    buildGear :: [SchematicNumber] -> Gear
+    buildGear nums = Gear (value . head $ nums) (value . head . tail $ nums)
+
+ratio :: Gear -> Int
+ratio (Gear n1 n2) = n1 * n2
 
 filterAdjacentNumbers :: [SchematicSymbol] -> [SchematicNumber] -> [SchematicNumber]
 filterAdjacentNumbers symbols = filter anyAdjacent
