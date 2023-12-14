@@ -38,8 +38,8 @@ part1 = do
 
 part1inner :: Input1 -> IO ()
 part1inner input = do
-  TIO.putStr "seeds: "
-  print $ fst input
+  -- TIO.putStr "seeds: "
+  -- print $ fst input
   print . minimum $ fullTransform (snd input) (fst input)
 
 part2 :: IO ()
@@ -50,15 +50,15 @@ part2 = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  TIO.putStrLn ""
-  mapM_ print $ snd input
-  TIO.putStrLn ""
-  let explicitInput = [79 .. 92] ++ [55 .. 67]
+  -- TIO.putStrLn ""
+  -- mapM_ print $ snd input
+  -- TIO.putStrLn ""
+  -- let explicitInput = [79 .. 92] ++ [55 .. 67]
   -- print . minimum $ fullTransform (snd input) [79,14,55,13,82]
-  print explicitInput
-  print . minimum $ fullTransform (snd input) explicitInput
-  TIO.putStrLn ""
-  print . minimum . map idxFrom $ rangeTransform (snd input) (tracePrefix "input:" (fst input))
+  -- print expliciInput
+  -- print . minimum $ fullTransform (snd input) explicitInput
+  -- TIO.putStrLn ""
+  print . minimum . map idxFrom $ rangeTransform (snd input) (fst input)
 
 -- print $ singleTransform (snd input) "seed" (fst input)
 -- TIO.putStrLn ""
@@ -102,7 +102,7 @@ fullTransform :: [Mapping] -> Seeds -> [Int]
 fullTransform mappings = go "seed"
   where
     go :: T.Text -> [Int] -> [Int]
-    go currentCategory idx = case traceShowId (singleTransform mappings currentCategory idx) of
+    go currentCategory idx = case singleTransform mappings currentCategory idx of
       (Nothing, nextIdx) -> nextIdx
       (Just next, nextIdx) -> go next nextIdx
 
@@ -122,7 +122,7 @@ rangeTransform :: [Mapping] -> [IdxRange] -> [IdxRange]
 rangeTransform mappings = go "seed"
   where
     go :: T.Text -> [IdxRange] -> [IdxRange]
-    go currentCategory idx = case tracePrefix "\nafter transform:" (rangeTransform' mappings currentCategory idx) of
+    go currentCategory idx = case rangeTransform' mappings currentCategory idx of
       (Nothing, nextIdx) -> nextIdx
       (Just next, nextIdx) -> go next nextIdx
 
@@ -136,9 +136,7 @@ idxTo idx = idxFrom idx + idxLength idx
 transformRangeStep :: Mapping -> IdxRange -> [IdxRange]
 transformRangeStep Mapping {..} idxRange =
   perform . filter (`mapsRange` idxRange)
-    $ tracePrefix "completed ranges:"
-      . completeBeginning
-      . completeEnd
+    $ completeBeginning . completeEnd
     $ completeRanges ranges
   where
     perform :: [Range] -> [IdxRange]
