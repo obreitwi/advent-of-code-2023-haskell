@@ -19,8 +19,8 @@ import Data.List (intersect, sortBy)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Text.Internal.Fusion.Common (findBy)
-import Prelude hiding (takeWhile)
 import Debug.Trace
+import Prelude hiding (takeWhile)
 
 part0 :: IO ()
 part0 = do
@@ -38,22 +38,27 @@ part1 = do
 
 part1inner :: Input1 -> IO ()
 part1inner input = do
-  -- print input
-  -- TIO.putStrLn ""
-  -- print $ singleTransform (snd input) "seed" (fst input)
-  -- TIO.putStrLn ""
+  TIO.putStr "seeds: "
+  print $ fst input
   print . minimum $ fullTransform (snd input) (fst input)
 
 part2 :: IO ()
 part2 = do
   s <- TIO.readFile "input.txt"
   putStr "Part 2: "
+  either error part2inner $ parseOnly parseInput2 s
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
-  -- TIO.putStrLn ""
-  print . minimum . map idxFrom $ rangeTransform (snd input) (traceShowId (fst input))
+  TIO.putStrLn ""
+  mapM_ print $ snd input
+  TIO.putStrLn ""
+  let explicitInput = [79 .. 92] ++ [55 .. 67]
+  -- print . minimum $ fullTransform (snd input) [79,14,55,13,82]
+  print explicitInput
+  print . minimum $ fullTransform (snd input) explicitInput
+  TIO.putStrLn ""
+  print . minimum . map idxFrom $ rangeTransform (snd input) (tracePrefix "input:" (fst input))
 
 -- print $ singleTransform (snd input) "seed" (fst input)
 -- TIO.putStrLn ""
@@ -97,7 +102,7 @@ fullTransform :: [Mapping] -> Seeds -> [Int]
 fullTransform mappings = go "seed"
   where
     go :: T.Text -> [Int] -> [Int]
-    go currentCategory idx = case singleTransform mappings currentCategory idx of
+    go currentCategory idx = case traceShowId (singleTransform mappings currentCategory idx) of
       (Nothing, nextIdx) -> nextIdx
       (Just next, nextIdx) -> go next nextIdx
 
@@ -117,7 +122,7 @@ rangeTransform :: [Mapping] -> [IdxRange] -> [IdxRange]
 rangeTransform mappings = go "seed"
   where
     go :: T.Text -> [IdxRange] -> [IdxRange]
-    go currentCategory idx = case traceShowId (rangeTransform' mappings currentCategory idx) of
+    go currentCategory idx = case tracePrefix "\nafter transform:" (rangeTransform' mappings currentCategory idx) of
       (Nothing, nextIdx) -> nextIdx
       (Just next, nextIdx) -> go next nextIdx
 
@@ -129,7 +134,12 @@ idxTo :: IdxRange -> Int
 idxTo idx = idxFrom idx + idxLength idx
 
 transformRangeStep :: Mapping -> IdxRange -> [IdxRange]
-transformRangeStep Mapping {..} idxRange = perform . tracePrefix "after maps range:" . filter (`mapsRange` idxRange) $ traceShowId . completeBeginning . completeEnd $ completeRanges (traceShowId ranges)
+transformRangeStep Mapping {..} idxRange =
+  perform . filter (`mapsRange` idxRange)
+    $ tracePrefix "completed ranges:"
+      . completeBeginning
+      . completeEnd
+    $ completeRanges ranges
   where
     perform :: [Range] -> [IdxRange]
     perform = map $ transform idxRange
@@ -138,24 +148,24 @@ transformRangeStep Mapping {..} idxRange = perform . tracePrefix "after maps ran
     -- ensure there is no range missng at the beginngin
     completeEnd :: [Range] -> [Range]
     completeEnd [] = []
-    completeEnd [i] = let endSource = startSource i + rangeLength i in
-      if endSource < idxTo idxRange then
-        i : [Range { startSource = endSource, startTarget = endSource, rangeLength = idxTo idxRange - endSource }]
-      else
-        [i]
-    completeEnd (i:ii) = i : completeEnd ii
-    
+    completeEnd [i] =
+      let endSource = startSource i + rangeLength i
+       in if endSource < idxTo idxRange
+            then i : [Range {startSource = endSource, startTarget = endSource, rangeLength = idxTo idxRange - endSource}]
+            else [i]
+    completeEnd (i : ii) = i : completeEnd ii
+
     -- ensure there is no range missng at the beginngin
     completeBeginning :: [Range] -> [Range]
     completeBeginning [] = []
-    completeBeginning (i:ii) = case startSource i of
-        0 -> i:ii
-        start -> Range{ startSource = 0, startTarget = 0, rangeLength = start } : i : ii
+    completeBeginning (i : ii) = case startSource i of
+      0 -> i : ii
+      start -> Range {startSource = 0, startTarget = 0, rangeLength = start} : i : ii
 
     -- ensure that there are no gaps in ranges
     completeRanges :: [Range] -> [Range]
     completeRanges [] = []
-    completeRanges (r:rr) = completeRanges' r rr
+    completeRanges (r : rr) = completeRanges' r rr
 
     completeRanges' :: Range -> [Range] -> [Range]
     completeRanges' current [] = [current]
@@ -172,12 +182,20 @@ transformRangeStep Mapping {..} idxRange = perform . tracePrefix "after maps ran
             }
 
     transform :: IdxRange -> Range -> IdxRange
-    transform IdxRange {..} Range {..} = IdxRange {
-      idxFrom = startTarget + offset,
-      idxLength = min (rangeLength - offset) idxLength
-    }
-      where
-        offset = idxFrom - startSource
+    transform IdxRange {..} Range {..} =
+      if startSource <= idxFrom
+        then
+          let offset = idxFrom - startSource
+           in IdxRange
+                { idxFrom = startTarget + offset,
+                  idxLength = min (rangeLength - offset) idxLength
+                }
+        else
+          let offset = startSource - idxFrom
+           in IdxRange
+                { idxFrom = startTarget,
+                  idxLength = min (idxLength - offset) rangeLength
+                }
 
 rangeTransform' :: [Mapping] -> T.Text -> [IdxRange] -> (Maybe T.Text, [IdxRange])
 rangeTransform' mappings currentCategory idxRanges = case nextMapping currentCategory mappings of
@@ -185,10 +203,19 @@ rangeTransform' mappings currentCategory idxRanges = case nextMapping currentCat
   Just mapping -> (Just . mappingTo $ mapping, concatMap (transformRangeStep mapping) idxRanges)
 
 mapsRange :: Range -> IdxRange -> Bool
-mapsRange Range {..} IdxRange {..} = not $ idxFrom + idxLength < startSource || startSource + rangeLength < idxFrom
+mapsRange Range {..} IdxRange {..} =
+  if idxFrom < startSource
+    then
+      let offset = startSource - idxFrom
+       in offset < idxLength
+    else
+      let offset = idxFrom - startSource
+       in offset < rangeLength
+
+-- not $ idxFrom + idxLength - 1 < startSource || startSource + rangeLength - 1 < idxFrom
 
 maps :: Range -> Int -> Bool
-maps Range {..} i = startSource <= i && i <= startSource + rangeLength
+maps Range {..} i = startSource <= i && i < startSource + rangeLength
 
 parseSeeds :: Parser Seeds
 parseSeeds = "seeds: " *> sepBy1' decimal (char ' ')
@@ -238,5 +265,5 @@ parseRange = do
   rangeLength <- decimal
   return $ Range {..}
 
-tracePrefix :: Show a => String -> a -> a
+tracePrefix :: (Show a) => String -> a -> a
 tracePrefix prefix a = trace (prefix ++ " " ++ show a) a
