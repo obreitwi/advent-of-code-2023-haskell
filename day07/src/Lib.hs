@@ -151,22 +151,23 @@ getType cards = case sortBy (comparing Down) . M.elems . countCards $ cards of
   _ -> error "invalid hand"
 
 getTypeWithJokers :: Hand -> HandType
-getTypeWithJokers hand = let numJokers = length . filter (== Joker) $ hand in
-  case (getType hand, numJokers) of
-    (t, 0) -> t
-    (FiveOfAKind, 5) -> FiveOfAKind
-    (FourOfAKind, 4) -> FiveOfAKind
-    (FourOfAKind, 1) -> FiveOfAKind
-    (FullHouse, 3) -> FiveOfAKind
-    (FullHouse, 2) -> FiveOfAKind
-    (ThreeOfAKind, 3) -> FourOfAKind
-    (ThreeOfAKind, 1) -> FourOfAKind
-    (TwoPair, 2) -> FourOfAKind
-    (TwoPair, 1) -> FullHouse
-    (OnePair, 2) -> ThreeOfAKind
-    (OnePair, 1) -> ThreeOfAKind
-    (HighCard, 1) -> OnePair
-    other -> error $ "invalid combination of HandType/num jokers encountered: " ++ show other
+getTypeWithJokers hand =
+  let numJokers = length . filter (== Joker) $ hand
+   in case (getType hand, numJokers) of
+        (t, 0) -> t
+        (FiveOfAKind, 5) -> FiveOfAKind
+        (FourOfAKind, 4) -> FiveOfAKind
+        (FourOfAKind, 1) -> FiveOfAKind
+        (FullHouse, 3) -> FiveOfAKind
+        (FullHouse, 2) -> FiveOfAKind
+        (ThreeOfAKind, 3) -> FourOfAKind
+        (ThreeOfAKind, 1) -> FourOfAKind
+        (TwoPair, 2) -> FourOfAKind
+        (TwoPair, 1) -> FullHouse
+        (OnePair, 2) -> ThreeOfAKind
+        (OnePair, 1) -> ThreeOfAKind
+        (HighCard, 1) -> OnePair
+        other -> error $ "invalid combination of HandType/num jokers encountered: " ++ show other
 
 countCards :: Hand -> M.Map Card Int
 countCards = go M.empty
@@ -180,6 +181,7 @@ getPoints [] = 0
 getPoints ((_, bid) : remainder) = bid * (1 + length remainder) + getPoints remainder
 
 type Unop a = a -> a
+
 type Lifter p q = Unop p -> Unop q
 
 convertJokerGame :: Unop Game
