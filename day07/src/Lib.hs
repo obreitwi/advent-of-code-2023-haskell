@@ -30,7 +30,7 @@ part0 = do
   s <- TIO.readFile "debug.txt"
   putStr "Part 1 debug (expecting 6440): "
   either error part1inner $ parseOnly parseInput1 s
-  putStr "Part 2 debug (expecting 71503): "
+  putStr "Part 2 debug (expecting 5905): "
   either error part2inner $ parseOnly parseInput2 s
 
 -- putStr "Part 2 debug (expecting 46): "
@@ -59,19 +59,20 @@ part1inner input = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
+  let sorted = sortOn (\(h, _) -> (getTypeWithJokers h, h)) input
+  print . getPoints $ sorted
 
 -- print . getPossibilities $ input
 
-type Input1 = [(Hand, Bid)]
+type Input1 = Game
 
-type Input2 = ()
+type Input2 = Game
 
 parseInput1 :: Parser Input1
 parseInput1 = parseGame
 
 parseInput2 :: Parser Input2
-parseInput2 = return ()
+parseInput2 = fmap convertJokerGame parseGame
 
 type Hand = [Card]
 
@@ -89,6 +90,7 @@ data Card
   | Card4
   | Card3
   | Card2
+  | Joker
   deriving (Show, Eq, Ord)
 
 data HandType
@@ -102,6 +104,10 @@ data HandType
   deriving (Show, Eq, Ord)
 
 type Bid = Int
+
+type HandBid = (Hand, Bid)
+
+type Game = [HandBid]
 
 parseCard :: Parser Card
 parseCard =
@@ -129,7 +135,7 @@ parseHandBid = do
   bid <- decimal
   return (hand, bid)
 
-parseGame :: Parser [(Hand, Bid)]
+parseGame :: Parser Game
 parseGame = sepBy1' parseHandBid endOfLine
 
 getType :: Hand -> HandType
@@ -144,6 +150,24 @@ getType cards = case sortBy (comparing Down) . M.elems . countCards $ cards of
   1 : 1 : 1 : 1 : [1] -> HighCard
   _ -> error "invalid hand"
 
+getTypeWithJokers :: Hand -> HandType
+getTypeWithJokers hand = let numJokers = length . filter (== Joker) $ hand in
+  case (getType hand, numJokers) of
+    (t, 0) -> t
+    (FiveOfAKind, 5) -> FiveOfAKind
+    (FourOfAKind, 4) -> FiveOfAKind
+    (FourOfAKind, 1) -> FiveOfAKind
+    (FullHouse, 3) -> FiveOfAKind
+    (FullHouse, 2) -> FiveOfAKind
+    (ThreeOfAKind, 3) -> FourOfAKind
+    (ThreeOfAKind, 1) -> FourOfAKind
+    (TwoPair, 2) -> FourOfAKind
+    (TwoPair, 1) -> FullHouse
+    (OnePair, 2) -> ThreeOfAKind
+    (OnePair, 1) -> ThreeOfAKind
+    (HighCard, 1) -> OnePair
+    other -> error $ "invalid combination of HandType/num jokers encountered: " ++ show other
+
 countCards :: Hand -> M.Map Card Int
 countCards = go M.empty
   where
@@ -151,6 +175,25 @@ countCards = go M.empty
     go mp [] = mp
     go mp (c : cc) = go (M.insertWith (+) c 1 mp) cc
 
-getPoints :: [(Hand, Bid)] -> Int
+getPoints :: Game -> Int
 getPoints [] = 0
 getPoints ((_, bid) : remainder) = bid * (1 + length remainder) + getPoints remainder
+
+type Unop a = a -> a
+type Lifter p q = Unop p -> Unop q
+
+convertJokerGame :: Unop Game
+convertJokerGame = onGame . onHandBid . onHand $ convertJoker
+
+convertJoker :: Card -> Card
+convertJoker CardJ = Joker
+convertJoker c = c
+
+onGame :: Lifter HandBid Game
+onGame = map
+
+onHandBid :: Lifter Hand HandBid
+onHandBid f (h, b) = (f h, b)
+
+onHand :: Lifter Card Hand
+onHand = map
