@@ -288,27 +288,27 @@ isInner' m p = numCrossings `mod` 2 == 1
   where
     numCrossings = go 0 Nothing p
 
-    -- use half crossing to differentiate between
+    -- use corners to differentiate between
     -- ─┐    ┌─  &  ──┐ ┌──
     --  └─  ─┘   &  ──┘ └──
-    go :: Int -> Maybe HalfCrossing -> (Int, Int) -> Int
+    go :: Int -> Maybe Corner -> (Int, Int) -> Int
     go current _ (_, -1) = current
-    go current hc c@(x, y) = go (current+update) nextHC next
+    go current hc c@(x, y) = go (current+update) nextCorner next
        where
           next = (x, y - 1)
           pipe = M.lookup c m
 
           update = case (pipe, hc) of
             (Just (Pipe Horizontal WestEast), _) -> 1
-            (Just (Pipe South West), Just HCFromEast) -> 1
-            (Just (Pipe South East), Just HCFromWest) -> 1
+            (Just (Pipe South West), Just CornerFromEast) -> 1
+            (Just (Pipe South East), Just CornerFromWest) -> 1
             _ -> 0
 
-          nextHC = case (hc, pipe) of
-            (_, Just (Pipe North West)) -> Just HCFromWest
-            (_, Just (Pipe North East)) -> Just HCFromEast
+          nextCorner = case (hc, pipe) of
+            (_, Just (Pipe North West)) -> Just CornerFromWest
+            (_, Just (Pipe North East)) -> Just CornerFromEast
             (_, Just (Pipe South West)) -> Nothing
             (_, Just (Pipe South East)) -> Nothing
-            (curHC, _) -> curHC
+            (curCorner, _) -> curCorner
 
-data HalfCrossing = HCFromWest | HCFromEast deriving (Show)
+data Corner = CornerFromWest | CornerFromEast deriving (Show)
