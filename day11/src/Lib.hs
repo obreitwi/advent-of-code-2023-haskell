@@ -28,7 +28,7 @@ part0 = do
   s <- TIO.readFile "debug.txt"
   putStr "Part 1 debug (expecting 374): "
   either error part1inner $ parseOnly parseInput1 s
-  putStr "Part 2 debug (expecting 71503): "
+  putStr "Part 2 debug: "
   either error part2inner $ parseOnly parseInput2 s
 
 -- putStr "Part 2 debug (expecting 46): "
@@ -65,21 +65,32 @@ part1inner input = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
+  -- putStrLn "input:"
+  -- printUniverse input
+  -- putStrLn "\nexpanded once:"
+  -- printUniverse . expandVast $ input
+  -- putStrLn ""
+  let expanded = transpose . expandVast . transpose . expandVast $ input
+  -- putStrLn "expanded:"
+  -- printUniverse expanded
+  -- putStrLn "---"
+  let galaxies = findCoordsVast expanded
+  -- print galaxies
+  print . computeDistances $ galaxies
 
 -- print . getPossibilities $ input
 
 type Input1 = [[Cell]]
 
-type Input2 = ()
+type Input2 = Input1
 
 parseInput1 :: Parser Input1
 parseInput1 = parseUniverse
 
 parseInput2 :: Parser Input2
-parseInput2 = return ()
+parseInput2 = parseInput1
 
-data Cell = EmptySpace | Galaxy deriving (Show, Eq)
+data Cell = EmptySpace | Galaxy | Expanded deriving (Show, Eq)
 
 parseUniverse :: Parser [[Cell]]
 parseUniverse = sepBy1' (many1' parseCell) endOfLine
@@ -92,7 +103,8 @@ isEmpty [] = True
 isEmpty _ = False
 
 transpose :: [[a]] -> [[a]]
-transpose x | all isEmpty x = []
+transpose x
+  | all isEmpty x = []
   | otherwise = map head x : transpose (map tail x)
 
 expand :: [[Cell]] -> [[Cell]]
@@ -101,8 +113,29 @@ expand (x : xx)
   | otherwise = x : expand xx
 expand [] = []
 
+expandVast :: [[Cell]] -> [[Cell]]
+expandVast (x : xx)
+  | all (\c -> c == EmptySpace || c == Expanded) x = map (const Expanded) x : expandVast xx
+  | otherwise = x : expandVast xx
+expandVast [] = []
+
 findCoords :: [[Cell]] -> [(Int, Int)]
 findCoords cells = [(i, j) | (j, row) <- enumerate cells, (i, c) <- enumerate row, c == Galaxy]
+
+factorExpansion :: Int
+factorExpansion = 1000000
+
+findCoordsVast :: [[Cell]] -> [(Int, Int)]
+findCoordsVast = go [] 0 (-1) []
+  where
+    go :: [(Int, Int)] -> Int -> Int -> [Cell] -> [[Cell]] -> [(Int, Int)]
+    go coords _ _ [] [] = coords
+    go coords _ j [] (row : rest)
+      | all (== Expanded) row = go coords 0 (j + factorExpansion) [] rest
+      | otherwise = go coords 0 (j + 1) row rest
+    go coords i j (Galaxy : cc) rows = go ((i, j) : coords) (i + 1) j cc rows
+    go coords i j (Expanded : cc) rows = go coords (i + factorExpansion) j cc rows
+    go coords i j (EmptySpace : cc) rows = go coords (i + 1) j cc rows
 
 enumerate :: [a] -> [(Int, a)]
 enumerate = go 0
@@ -120,6 +153,7 @@ computeDistances cc = (`quot` 2) . sum . map (uncurry dist) $ [(c1, c2) | c1 <- 
 printCell :: Cell -> IO ()
 printCell EmptySpace = putChar '.'
 printCell Galaxy = putChar '#'
+printCell Expanded = putChar 'x'
 
 printUniverse :: [[Cell]] -> IO ()
 printUniverse = mapM_ (\l -> mapM_ printCell l >> putStrLn "")
