@@ -56,8 +56,8 @@ part1inner input = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  -- mapM_ (print . countPossibilitiesAllAtOnce) input
-  print . sum . map countPossibilitiesAllAtOnce $ input
+  -- mapM_ (print . countPossibilities) input
+  print . sum . map countPossibilities $ input
 
 type Input1 = [SpringConfig]
 
@@ -86,8 +86,8 @@ parseSpringState = char '.' $> Operational <|> char '#' $> Damaged <|> char '?' 
 unfold :: SpringConfig -> SpringConfig
 unfold (SC cfgs dmgd) = SC (intercalate [Unknown] (replicate 5 cfgs)) (concat $ replicate 5 dmgd)
 
-countPossibilitiesAllAtOnce :: SpringConfig -> Int
-countPossibilitiesAllAtOnce (SC sss ttt) = mo 0 sss ttt
+countPossibilities :: SpringConfig -> Int
+countPossibilities (SC sss ttt) = mo 0 sss ttt
   where
     mo :: Int -> [SpringState] -> [Int] -> Int
     mo = Memo.memo3 Memo.integral (Memo.list Memo.enum) (Memo.list Memo.integral) go'
@@ -109,7 +109,16 @@ countPossibilitiesAllAtOnce (SC sss ttt) = mo 0 sss ttt
     go 0 (Unknown : ss) targets =
       let choseDamaged = mo 1 ss targets
           choseOperational = mo 0 ss targets
-       in choseDamaged + choseOperational
+          -- stopping early if we cannot have enoough damaged springs
+          damagedToReach = sum targets
+          operationalToReach = length targets - 1
+          -- not counting current Unknown
+          availableOperational = length . filter (`elem` [Unknown, Operational]) $ ss
+          availableDamaged = length . filter (`elem` [Damaged, Unknown]) $ ss
+       in if (1 + availableDamaged) >= damagedToReach && availableOperational >= operationalToReach
+            then choseDamaged + choseOperational
+            else 0
+       -- in choseDamaged + choseOperational
     go d (Unknown : ss) allTargets@(t : targets)
       | d == t = mo 0 ss targets
       | d < t = mo (d + 1) ss allTargets
