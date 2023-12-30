@@ -37,6 +37,7 @@ library
       attoparsec >=0.14.4
     , base >=4.7 && <5
     , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
     , text >=2.0.2
     , vector >=0.13.1.0
   default-language: Haskell2010
@@ -54,6 +55,7 @@ executable day12-exe
       attoparsec >=0.14.4
     , base >=4.7 && <5
     , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
     , day12
     , text >=2.0.2
     , vector >=0.13.1.0
@@ -73,6 +75,7 @@ test-suite day12-test
       attoparsec >=0.14.4
     , base >=4.7 && <5
     , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
     , day12
     , text >=2.0.2
     , vector >=0.13.1.0
