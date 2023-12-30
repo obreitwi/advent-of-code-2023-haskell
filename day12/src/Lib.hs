@@ -18,6 +18,7 @@ import Data.Foldable
 import Data.Functor
 import Data.List (intercalate, intersect, sortBy)
 import qualified Data.Map.Strict as M
+import Data.Maybe (fromMaybe)
 import qualified Data.MemoCombinators as Memo
 import qualified Data.Set as S
 import qualified Data.Text as T
@@ -58,9 +59,9 @@ part1inner input = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  let damaged = map (splitDamaged . getStates) input
+  -- let damaged = map (splitDamaged . getStates) input
   -- let damagedConcat = S.fromList . concat $ damaged
-  let target = map getDamaged input
+  -- let target = map getDamaged input
 
   -- mapM_ print damagedConcat
   -- mapM_ (print . \x -> (x, possibleCombinations x)) damagedConcat
@@ -68,8 +69,10 @@ part2inner input = do
   -- print $ head target
   -- putStrLn ""
   -- mapM_ (mapM_ print . M.toList . flip filterPossible (head target)) $ head damaged
-  mapM_ print $ zipWith countValidDamaged target damaged
-  print . sum $ zipWith countValidDamaged target damaged
+  -- mapM_ print $ zipWith countValidDamaged target damaged
+  -- print . sum $ zipWith countValidDamaged target damaged
+  mapM_ (print . countPossibilitiesAllAtOnce) input
+  print . sum . map countPossibilitiesAllAtOnce $ input
 
 type Input1 = [SpringConfig]
 
@@ -138,7 +141,7 @@ possibleCombinations = foldl' (flip $ M.alter p1) M.empty . go 0
     p1 (Just x) = Just $ x + 1
 
 countValidDamaged :: [Int] -> [[SpringState]] -> Int
-countValidDamaged ttt = flip (M.!) [] . foldl folder initial
+countValidDamaged ttt = fromMaybe 0 . flip (M.!?) [] . foldl folder initial
   where
     initial :: M.Map [Int] Int
     initial = M.singleton ttt 1
@@ -172,7 +175,8 @@ countPossibilities sss ttt = foldl' (flip $ M.alter p1) M.empty $ mo 0 sss ttt
     go :: Int -> [SpringState] -> [Int] -> [[Int]]
     go 0 [] [] = [[]]
     go _ [] [] = []
-    go 0 [] targets = [targets]
+    -- go 0 [] targets = [targets]
+    go 0 [] targets = []
     go d [] (t : tt)
       | d == t = [tt]
       | otherwise = []
@@ -184,17 +188,66 @@ countPossibilities sss ttt = foldl' (flip $ M.alter p1) M.empty $ mo 0 sss ttt
     go 0 (Unknown : ss) targets =
       let choseDamaged = mo 1 ss targets
           choseOperational = mo 0 ss targets
-       -- in choseOperational `seq` choseDamaged `seq` choseDamaged ++ choseOperational
-       in choseDamaged ++ choseOperational
+          remainingFixedDamaged = length . filter (== Damaged) $ ss
+          totalDamagedExpected = sum targets
+       in -- in choseOperational `seq` choseDamaged `seq` choseDamaged ++ choseOperational
+          if remainingFixedDamaged < totalDamagedExpected -- only choose both if we can expect to succeed
+            then choseDamaged ++ choseOperational
+            else choseOperational
     go d (Unknown : ss) allTargets@(t : targets)
       | d == t = mo 0 ss targets
       | d < t = mo (d + 1) ss allTargets
       | otherwise = []
-    go _ (Operational : _) _ = error "Operational not expected"
+    go _ (Operational : _) _ = error "encountered fixed Operational spring"
 
     p1 :: Maybe Int -> Maybe Int
     p1 Nothing = Just 1
     p1 (Just x) = Just $ x + 1
+
+countPossibilitiesAllAtOnce :: SpringConfig -> Int
+countPossibilitiesAllAtOnce (SC sss ttt) = mo 0 sss ttt
+  where
+    mo :: Int -> [SpringState] -> [Int] -> Int
+    mo = Memo.memo3 Memo.integral (Memo.list Memo.enum) (Memo.list Memo.integral) go'
+
+    -- go :: M.Map [Int] Int -> [Int] -> [SpringState] -> M.Map [Int] Int
+    -- go accum (current:other) (Damaged:ss) = go accum (current+1:other) ss
+    -- go accum (current:other) (Unknown:ss) = M.alter p1
+    -- accum (current+1:other) ss
+
+    go' :: Int -> [SpringState] -> [Int] -> Int
+    -- go' d ss tt = trace (printf "[Depth] %d [SpringStates] %s [Targets] %s" d (show ss) (show tt)) $ go d ss tt
+    go' = go
+
+    -- current damaged, input, target groups
+    go :: Int -> [SpringState] -> [Int] -> Int
+    go 0 [] [] = 1
+    go d [] [t] | t == d = 1
+    go _ [] _ = 0
+    go _ (Damaged : _) [] = 0
+    go d (Damaged : ss) allTargets@(t : _)
+      | d >= t = 0 -- more damaged springs than the current contiguous region allows
+      | otherwise = mo (d + 1) ss allTargets
+    go d (Unknown : ss) [] = mo d ss []
+    go 0 (Unknown : ss) targets =
+      let choseDamaged = mo 1 ss targets
+          choseOperational = mo 0 ss targets
+          -- remainingFixedDamaged = length . filter (== Damaged) $ ss
+          -- totalDamagedExpected = sum targets
+       -- in choseOperational `seq` choseDamaged `seq` choseDamaged + choseOperational
+       in choseDamaged + choseOperational
+          -- if remainingFixedDamaged < totalDamagedExpected -- only choose both if we can expect to succeed
+            -- then choseDamaged + choseOperational
+            -- else choseOperational
+    go d (Unknown : ss) allTargets@(t : targets)
+      | d == t = mo 0 ss targets
+      | d < t = mo (d + 1) ss allTargets
+      | otherwise = 0
+    go 0 (Operational : ss) targets = go 0 ss targets
+    go d (Operational : ss) (t : targets)
+      | d == t = go 0 ss targets
+      | otherwise = 0
+    go d (Operational : ss) [] = 0
 
 countValid :: SpringConfig -> Int
 countValid (SC configs damaged) = go Operational configs damaged
