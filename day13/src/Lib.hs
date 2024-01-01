@@ -53,27 +53,20 @@ part1inner :: Input1 -> IO ()
 part1inner input = do
   print . calculateScore $ map determineMirror input
 
-filterSame :: (Int, [(Vote, Int)]) -> Bool
-filterSame = cmp . map snd . snd
-  where
-    cmp :: [Int] -> Bool
-    cmp [] = False
-    cmp [_] = False
-    cmp (f : s : _) = f == s
-
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
+  print . calculateScore $ map (fst . determineSmudgedMirror) input
+
 
 type Input1 = [Pattern]
 
-type Input2 = ()
+type Input2 = Input1
 
 parseInput1 :: Parser Input1
 parseInput1 = sepBy1' parsePattern (many1' endOfLine)
 
 parseInput2 :: Parser Input2
-parseInput2 = return ()
+parseInput2 = parseInput1
 
 printPattern :: Pattern -> IO ()
 printPattern = mapM_ printVector
@@ -109,7 +102,21 @@ calculateScore = sum . map calc
 determineMirror :: Pattern -> Vote
 determineMirror p = head . filter (verifyVote p) . map fst . sortBy (flip compareVotes) . M.toList . hughVotes $ p
 
+determineSmudgedMirror :: Pattern -> (Vote, (Int, Int))
+determineSmudgedMirror p = oneSmudge
+  where
+    sortedByMatches :: [Vote]
+    sortedByMatches = map fst . sortBy (flip compareVotes) . M.toList . hughVotes $ p
 
+    withSmudges :: [(Vote, [(Int, Int)])]
+    withSmudges = map (\v -> (v, smudges p v)) sortedByMatches
+
+    oneSmudge :: (Vote, (Int, Int))
+    oneSmudge = B.second head . verifyOne . filter ((== 1) . length . snd) $ withSmudges
+
+    verifyOne :: [a] -> a
+    verifyOne [single] = single
+    verifyOne _ = error "more than one value"
 
 compareVotes :: (Vote, Int) -> (Vote, Int) -> Ordering
 compareVotes (_, l) (_, r) = compare l r
@@ -153,12 +160,16 @@ hughVotesCol p (i, j) = M.fromList . map (\jj -> (Row (jj + 1), 1)) $ mirrorCols
     -- mirrors can only be between rows
     mirrorCols = map (\c -> c `quot` 2 + j) . filter (\y -> y `rem` 2 == 1) . map (\y -> y - j) $ matching
 
-verifyVote :: Pattern -> Vote -> Bool
-verifyVote p (Col i) = verifyCol p i
-verifyVote p (Row j) = verifyRow p j
+-- count how many imperfections there are
+smudges :: Pattern -> Vote -> [(Int, Int)]
+smudges p (Col i) = smudgesCol p i
+smudges p (Row j) = smudgesRow p j
 
-verifyCol :: Pattern -> Int -> Bool
-verifyCol p i = all vrfy toTest
+verifyVote :: Pattern -> Vote -> Bool
+verifyVote p v = null $ smudges p v
+
+smudgesCol :: Pattern -> Int -> [(Int, Int)]
+smudgesCol p i = filter (not . vrfy) toTest
   where
     toTest :: [(Int, Int)]
     toTest = [(ii, jj) | ii <- [from .. to], jj <- [0 .. (numRows - 1)]]
@@ -177,8 +188,8 @@ verifyCol p i = all vrfy toTest
     vrfy :: (Int, Int) -> Bool
     vrfy (ii, jj) = get (ii, jj) == get (i + (i - ii) - 1, jj)
 
-verifyRow :: Pattern -> Int -> Bool
-verifyRow p j = all vrfy toTest
+smudgesRow :: Pattern -> Int -> [(Int, Int)]
+smudgesRow p j = filter (not . vrfy) toTest
   where
     toTest :: [(Int, Int)]
     toTest = [(ii, jj) | ii <- [0 .. (numCols - 1)], jj <- [from .. to]]
