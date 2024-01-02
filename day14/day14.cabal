@@ -1,0 +1,85 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.35.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           day14
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/obreitwi/day14#readme>
+homepage:       https://github.com/obreitwi/day14#readme
+bug-reports:    https://github.com/obreitwi/day14/issues
+author:         Oliver Breitwieser
+maintainer:     oliver@breitwieser.eu
+copyright:      MIT
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/obreitwi/day14
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_day14
+  autogen-modules:
+      Paths_day14
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      attoparsec >=0.14.4
+    , base >=4.7 && <5
+    , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
+    , rebase >=1.19
+    , text >=2.0.2
+    , vector >=0.13.1.0
+  default-language: Haskell2010
+
+executable day14-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_day14
+  autogen-modules:
+      Paths_day14
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      attoparsec >=0.14.4
+    , base >=4.7 && <5
+    , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
+    , day14
+    , rebase >=1.19
+    , text >=2.0.2
+    , vector >=0.13.1.0
+  default-language: Haskell2010
+
+test-suite day14-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_day14
+  autogen-modules:
+      Paths_day14
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      attoparsec >=0.14.4
+    , base >=4.7 && <5
+    , containers >=0.4.0.0
+    , data-memocombinators >=0.5.1
+    , day14
+    , rebase >=1.19
+    , text >=2.0.2
+    , vector >=0.13.1.0
+  default-language: Haskell2010
