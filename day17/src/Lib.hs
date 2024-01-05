@@ -133,8 +133,11 @@ instance Ord Trajectory where
 tracePre :: String -> a -> a
 tracePre _ x = x
 
+step :: Trajectory -> (Momentum, Int)
+step t = (m t, straightStepsLeft t)
+
 findPathMinHeat :: CityBlocks -> Position -> Position -> Int
-findPathMinHeat cb start target = go startPos
+findPathMinHeat cb start target = go (S.map step startPos) startPos
   where
     startPos :: S.Set Trajectory
     startPos = tracePre "startPos: " $ foldl1' S.union $ map ((\m -> setupTrajectory m (getH . fst $ m)) . advance . (start,)) [DirLeft, DirRight, DirUp, DirDown]
@@ -145,13 +148,16 @@ findPathMinHeat cb start target = go startPos
 
     getH = getHeat cb
 
-    go :: S.Set Trajectory -> Int
-    go tt =
-      let (cur@Trajectory {..}, tt') = S.deleteFindMin tt
-          tt'' = tracePre "current trajectories: " $ possibleTrajectories cur `S.union` tt'
-       in if fst m == target
-            then heat
-            else go tt''
+    go :: S.Set (Momentum, Int) -> S.Set Trajectory -> Int
+    go visited tt =
+      let (cur, tt') = S.deleteFindMin tt
+          newTrajectories = possibleTrajectories cur
+          filteredTrajectories = S.filter (flip S.notMember visited . step) newTrajectories
+          updatedVisited = S.union visited $ S.map step newTrajectories
+          tt'' = tracePre "current trajectories: " $ filteredTrajectories `S.union` tt'
+       in if (fst . m) cur == target
+            then heat cur
+            else go updatedVisited tt''
 
     -- directory should be different from current
     advanceTrajectoryDiffDir :: Trajectory -> Direction -> S.Set Trajectory
