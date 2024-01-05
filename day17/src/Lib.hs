@@ -19,6 +19,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
+import GHC.IO.Device (IODeviceType (Directory))
 import qualified Rebase.Data.UUID as T
 import Rebase.Prelude hiding (takeWhile)
 import Prelude ()
@@ -31,7 +32,7 @@ part0 = do
   s <- TIO.readFile "debug.txt"
   putStr "Part 1 debug (expecting 102): "
   either error part1inner $ parseOnly parseInput1 s
-  putStr "Part 2 debug (expecting XXX): "
+  putStr "Part 2 debug (expecting 94): "
   either error part2inner $ parseOnly parseInput2 s
 
 part1 :: IO ()
@@ -58,17 +59,18 @@ part1inner input = do
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
+  let (dimX, dimY) = dimensions input
+  print $ findPathMinHeatUltra input (0, 0) (dimX - 1, dimY - 1)
 
 type Input1 = CityBlocks
 
-type Input2 = ()
+type Input2 = Input1
 
 parseInput1 :: Parser Input1
 parseInput1 = parseCityBlocks
 
 parseInput2 :: Parser Input2
-parseInput2 = return ()
+parseInput2 = parseInput1
 
 data CityBlocks = CB Int (U.Vector Int) deriving (Show, Eq)
 
@@ -171,6 +173,70 @@ findPathMinHeat cb start target = go (S.map step startPos) startPos
 
     possibleTrajectories :: Trajectory -> S.Set Trajectory
     possibleTrajectories t@Trajectory {..} = tracePre ("new trajectories from " ++ show t ++ ": ") $ goStraight t `S.union` (foldl1' S.union . map (advanceTrajectoryDiffDir t)) (turnOptions . snd $ m)
+
+    -- check if trajectory can go straight
+    goStraight :: Trajectory -> S.Set Trajectory
+    goStraight Trajectory {..}
+      | straightStepsLeft == 0 = S.empty
+      | otherwise =
+          updateHeat
+            Trajectory
+              { m = advance m,
+                straightStepsLeft = straightStepsLeft - 1,
+                ..
+              }
+
+    updateHeat :: Trajectory -> S.Set Trajectory
+    updateHeat Trajectory {m = m@(p, _), ..} =
+      case getH p of
+        Just delta ->
+          S.singleton
+            Trajectory
+              { heat = heat + delta,
+                ..
+              }
+        Nothing -> S.empty
+
+findPathMinHeatUltra :: CityBlocks -> Position -> Position -> Int
+findPathMinHeatUltra cb start target = go (S.map step startPos) startPos
+  where
+    startPos :: S.Set Trajectory
+    startPos = tracePre "startPos: " $ foldl1' S.union $ map ((\m -> setupTrajectory m (getH . fst $ m)) . advance . (start,)) [DirLeft, DirRight, DirUp, DirDown]
+
+    setupTrajectory :: Momentum -> Maybe Heat -> S.Set Trajectory
+    setupTrajectory _ Nothing = S.empty
+    setupTrajectory m (Just heat) = S.singleton Trajectory {straightStepsLeft = 9, ..}
+
+    getH = getHeat cb
+
+    go :: S.Set (Momentum, Int) -> S.Set Trajectory -> Int
+    go visited tt =
+      let (cur, tt') = S.deleteFindMin tt
+          newTrajectories = possibleTrajectories cur
+          filteredTrajectories = S.filter (flip S.notMember visited . step) newTrajectories
+          updatedVisited = S.union visited $ S.map step newTrajectories
+          tt'' = tracePre "current trajectories: " $ filteredTrajectories `S.union` tt'
+       in if (fst . m) cur == target
+            then heat cur
+            else go updatedVisited tt''
+
+    -- directory should be different from current
+    advanceTrajectoryDiffDir :: Trajectory -> Direction -> S.Set Trajectory
+    advanceTrajectoryDiffDir Trajectory {..} d =
+      updateHeat
+        Trajectory
+          { m = advance (fst m, d),
+            straightStepsLeft = 9,
+            ..
+          }
+
+    possibleTrajectories :: Trajectory -> S.Set Trajectory
+    possibleTrajectories t = tracePre ("new trajectories from " ++ show t ++ ": ") $ goStraight t `S.union` (foldl' S.union S.empty . map (advanceTrajectoryDiffDir t)) (turnOptionsUltra t)
+
+    turnOptionsUltra :: Trajectory -> [Direction]
+    turnOptionsUltra t
+      | straightStepsLeft t < 7 = turnOptions . snd . m $ t
+      | otherwise = []
 
     -- check if trajectory can go straight
     goStraight :: Trajectory -> S.Set Trajectory
