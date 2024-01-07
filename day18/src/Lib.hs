@@ -12,24 +12,26 @@ module Lib
 where
 
 import Data.Attoparsec.Text
+import qualified Data.IntMap as V
 import qualified Data.Map.Strict as M
 import qualified Data.MemoCombinators as Memo
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Data.Vector (generate)
+import qualified Data.Vector.Unboxed as U
 import qualified Rebase.Data.UUID as T
-import Rebase.Prelude hiding (takeWhile, take)
+import Rebase.Prelude hiding (take, takeWhile)
 import Prelude ()
 
 -- import qualified Data.Vector as V
--- import qualified Data.Vector.Unboxed as U
 
 part0 :: IO ()
 part0 = do
   s <- TIO.readFile "debug.txt"
   putStr "Part 1 debug (expecting 62): "
   either error part1inner $ parseOnly parseInput1 s
-  putStr "Part 2 debug (expecting XXX): "
+  putStr "Part 2 debug (expecting 952408144115): "
   either error part2inner $ parseOnly parseInput2 s
 
 part1 :: IO ()
@@ -46,18 +48,49 @@ part2 = do
 
 part1inner :: Input1 -> IO ()
 part1inner input = do
-  putStrLn ""
+  -- putStrLn ""
   -- mapM_ print input
   let outline = drawOutline input
   let filled = fillOutline outline
-  printOutline filled
-  putStrLn ""
+  -- printOutline filled
+  -- putStrLn ""
   print . S.size $ filled
+  putStrLn ""
+
+mockInput :: [(Direction, Int)]
+mockInput =
+  [ (DirUp, 1000),
+    (DirRight, 900),
+    (DirDown, 100),
+    (DirRight, 100),
+    (DirDown, 900),
+    (DirLeft, 1000)
+  ]
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  mapM_ print  input
-  mapM_ print . foldl1' S.intersection . traceShowId . map (primeFactors . snd) $ input
+  -- putStrLn ""
+  -- mapM_ print input
+  -- let input = mockInput
+  let outline = drawOutlinePointwise input
+  let rg = rescaleGrid . S.fromList $ outline
+  let rescaled = drawOutlineRescaled rg input
+  let filled = fillOutline rescaled
+  let area = totalArea rg outline filled
+  -- mapM_ print rescaled
+  -- putStrLn ""
+  -- putStrLn "Rescaled:"
+  -- putStrLn ""
+  -- printOutline rescaled
+  -- putStrLn ""
+  -- putStrLn "Filled:"
+  -- putStrLn ""
+  -- printOutline filled
+  -- putStrLn ""
+  -- putStr "Diff from want: "
+  -- print $ 952408144115 - area
+
+  print area
 
 type Input1 = [(Direction, Int)]
 
@@ -114,20 +147,51 @@ drawOutline = go (S.singleton (0, 0)) (0, 0)
       let newPos = walk cur i
        in go (visited `S.union` S.fromList newPos) (last newPos) ii
 
--- fillOutline :: S.Set Position -> S.Set Position
--- fillOutline outline = outline `S.union` S.filter (checkInner outline bnds) ((S.fromList [(i, j) | i <- [xMin .. xMax], j <- [yMin .. yMax]]) S.\\ outline)
--- where
--- bnds@((xMin, yMin), (xMax, yMax)) = bounds outline
+drawOutlinePointwise :: [(Direction, Int)] -> [Position]
+drawOutlinePointwise = go [(0, 0)] (0, 0)
+  where
+    go :: [Position] -> Position -> [(Direction, Int)] -> [Position]
+    go visited _ [] = visited
+    go visited cur ((d, i) : ii) =
+      let newPos = fst $ advanceN i (cur, d)
+       in go (newPos : visited) newPos ii
+
+drawOutlineRescaled :: RescaledGrid -> [(Direction, Int)] -> S.Set Position
+drawOutlineRescaled rg@RescaledGrid {..} = go (S.singleton (shrink rg (0, 0))) (0, 0)
+  where
+    go :: S.Set Position -> Position -> [(Direction, Int)] -> S.Set Position
+    go visited _ [] = visited
+    go visited cur ((d, i) : ii) =
+      let m = (cur, d)
+          newPos = fst $ advanceN i m
+
+          newPosRescaled = tracePre "newPosRescaled: " $ shrink rg newPos
+          curRescaled = tracePre "curRescaled: " $ shrink rg cur
+
+          dist :: Int
+          dist = tracePre "dist: " $ newPosRescaled `absDistance` curRescaled
+
+          newPoints = tracePre "newPoints: " $ map (fst . (`advanceN` (curRescaled, d))) [1 .. dist]
+       in go (visited `S.union` S.fromList newPoints) newPos ii
+
+-- tracePre :: (Show a) => String -> a -> a
+-- tracePre label x = trace (label ++ show x) x
+
+tracePre :: String -> a -> a
+tracePre _ x = x
+
+absDistance :: Position -> Position -> Int
+absDistance (lX, lY) (rX, rY) = max (abs (lX - rX)) (abs (lY - rY))
 
 fillOutline :: S.Set Position -> S.Set Position
 fillOutline outline = inner `S.union` outline
   where
-    inner = allPoints (bounds outline) S.\\ foldl (\visited pos -> flood visited pos) outline (S.toList $ findPointsOutside outline)
+    inner = allPoints (bounds outline) S.\\ foldl flood outline (S.toList $ findPointsOutside outline)
 
 type Bounds = ((Int, Int), (Int, Int))
 
 outOfBounds :: Bounds -> Position -> Bool
-outOfBounds b@((xMin, yMin), (xMax, yMax)) (x, y) = (x < xMin) || (x > xMax) || (y < yMin) || (y > yMax)
+outOfBounds ((xMin, yMin), (xMax, yMax)) (x, y) = (x < xMin) || (x > xMax) || (y < yMin) || (y > yMax)
 
 allDirections :: [Direction]
 allDirections = [DirLeft, DirRight, DirUp, DirDown]
@@ -147,7 +211,6 @@ flood boundary start
     go visited [] = visited
     go visited (p : pp) = go (visited `S.union` S.fromList newPositions) (newPositions ++ pp)
       where
-        -- newPositions = traceShowId $ filter (`S.notMember` visited) . traceShowId . filter (not . outOfBounds bnds) . traceShowId .  map (fst . advance . (p,)) $ allDirections
         newPositions = filter (`S.notMember` visited) . filter (not . outOfBounds bnds) . map (fst . advance . (p,)) $ allDirections
 
 -- checkInner :: S.Set Position -> Bounds -> Position -> Bool
@@ -158,11 +221,11 @@ flood boundary start
 -- \| outOfBounds bounds $ fst cur = numTransitions
 -- \| otherwise = case (onOutline, fst cur `S.member` outline) of
 -- (True, True) -> go numTransitions True $ advance cur
--- (False, True) -> go (numTransitions + 1) True $ advance cur
+-- (False, True -> go (numTransitions + 1) True $ advance cur
 -- (_, False) -> go numTransitions False $ advance cur
 
 allPoints :: Bounds -> S.Set Position
-allPoints ((xMin, yMin), (xMax, yMax)) = (S.fromList [(i, j) | i <- [xMin .. xMax], j <- [yMin .. yMax]])
+allPoints ((xMin, yMin), (xMax, yMax)) = S.fromList [(i, j) | i <- [xMin .. xMax], j <- [yMin .. yMax]]
 
 findPointsOutside :: S.Set Position -> S.Set Position
 findPointsOutside outline = circumference S.\\ outline
@@ -179,10 +242,13 @@ walk p (d, i) =
 type Momentum = (Position, Direction)
 
 advance :: Momentum -> Momentum
-advance ((i, j), DirLeft) = ((i - 1, j), DirLeft)
-advance ((i, j), DirRight) = ((i + 1, j), DirRight)
-advance ((i, j), DirUp) = ((i, j - 1), DirUp)
-advance ((i, j), DirDown) = ((i, j + 1), DirDown)
+advance = advanceN 1
+
+advanceN :: Int -> Momentum -> Momentum
+advanceN n ((i, j), DirLeft) = ((i - n, j), DirLeft)
+advanceN n ((i, j), DirRight) = ((i + n, j), DirRight)
+advanceN n ((i, j), DirUp) = ((i, j - n), DirUp)
+advanceN n ((i, j), DirDown) = ((i, j + n), DirDown)
 
 bounds :: S.Set Position -> (Position, Position)
 bounds pos =
@@ -224,12 +290,68 @@ hexDigitToInt 'c' = 12
 hexDigitToInt 'd' = 13
 hexDigitToInt 'e' = 14
 hexDigitToInt 'f' = 15
+hexDigitToInt _ = error "invalid hex digit"
 
-primeFactors :: Int -> S.Set Int
-primeFactors = S.fromList . go [] 2
+data RescaledGrid = RescaledGrid
+  { stepsX :: U.Vector Int,
+    stepsY :: U.Vector Int,
+    invX :: M.Map Int Int,
+    invY :: M.Map Int Int
+  }
+  deriving (Show)
+
+rescaleGrid :: S.Set Position -> RescaledGrid
+rescaleGrid pos = RescaledGrid {..}
   where
-    go :: [Int] -> Int -> Int -> [Int]
-    go factors toTest 1 = factors
-    go factors toTest cur
-      | cur `rem` toTest == 0 = go (toTest:factors) 2 (cur `quot` toTest)
-      | otherwise = go factors (toTest+1) cur
+    stepsX = U.fromList . insertMidPoints . sort . S.toList . S.map fst $ pos
+    stepsY = U.fromList . insertMidPoints . sort . S.toList . S.map snd $ pos
+
+    invX = M.fromList $ zipWith (curry swap) [0 ..] $ U.toList stepsX
+    invY = M.fromList $ zipWith (curry swap) [0 ..] $ U.toList stepsY
+
+-- insert points on the middle between existing points
+insertMidPoints :: [Int] -> [Int]
+insertMidPoints [] = []
+insertMidPoints [f] = [f - 1, f, f + 1]
+insertMidPoints (f : s : rest) = f - 1 : f : f + 1 : insertMidPoints (s : rest)
+
+-- where
+-- delta = (s - f) `quot` 2
+-- mid = f + delta
+
+-- transform large points into simple indices
+shrink :: RescaledGrid -> Position -> Position
+shrink RescaledGrid {..} (i, j) = (invX M.! i, invY M.! j)
+
+expand :: RescaledGrid -> Position -> Position
+expand RescaledGrid {..} (i, j) = (stepsX U.! i, stepsY U.! j)
+
+-- return all points which have their corresponding rectangle (in which they are top left) fully contained in the set
+containedRectangles :: S.Set Position -> S.Set Position
+-- containedRectangles pos = (\after -> trace (printf "Filtered %d entries: " (S.size pos - S.size after) ++ show (pos S.\\ after)) after) $ S.filter (all (`S.member` pos) . rectangleFromTopLeft) pos
+containedRectangles pos = S.filter (all (`S.member` pos) . rectangleFromTopLeft) pos
+  where
+    rectangleFromTopLeft (i, j) = [(i + 1, j), (i, j + 1), (i + 1, j + 1)]
+
+areaRectangle :: RescaledGrid -> Position -> Int
+areaRectangle rg topLeftIdx = height * width
+  where
+    topLeft = expand rg topLeftIdx
+
+    topRight = expand rg (fst topLeftIdx + 1, snd topLeftIdx)
+
+    bottomLeft = expand rg (fst topLeftIdx, snd topLeftIdx + 1)
+
+    height = topLeft `absDistance` bottomLeft
+    width = topLeft `absDistance` topRight
+
+innerArea :: RescaledGrid -> S.Set Position -> Int
+innerArea rg = sum . map (areaRectangle rg) . S.toList . containedRectangles
+
+lengthOutline :: [Position] -> Int
+lengthOutline [] = 0
+lengthOutline [s] = 0
+lengthOutline (f : s : other) = absDistance f s + lengthOutline (s : other)
+
+totalArea :: RescaledGrid -> [Position] -> S.Set Position -> Int
+totalArea rg outline inner = 1 + innerArea rg inner + (lengthOutline outline `quot` 2)
