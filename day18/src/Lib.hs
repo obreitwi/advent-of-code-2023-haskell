@@ -176,7 +176,6 @@ drawOutlineRescaled rg@RescaledGrid {..} = go (S.singleton (shrink rg (0, 0))) (
 
 -- tracePre :: (Show a) => String -> a -> a
 -- tracePre label x = trace (label ++ show x) x
-
 tracePre :: String -> a -> a
 tracePre _ x = x
 
@@ -314,10 +313,6 @@ insertMidPoints :: [Int] -> [Int]
 insertMidPoints [] = []
 insertMidPoints [f] = [f - 1, f, f + 1]
 insertMidPoints (f : s : rest) = f - 1 : f : f + 1 : insertMidPoints (s : rest)
-
--- where
--- delta = (s - f) `quot` 2
--- mid = f + delta
 
 -- transform large points into simple indices
 shrink :: RescaledGrid -> Position -> Position
