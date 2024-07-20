@@ -33,8 +33,6 @@ part0 = do
   s2 <- TIO.readFile "debug2.txt"
   putStr "Part 1 debug #2 (expecting 11687500): "
   either error part1inner $ parseOnly parseInput1 s2
-  putStr "Part 2 debug (expecting XXX): "
-  either error part2inner $ parseOnly parseInput2 s
 
 part1 :: IO ()
 part1 = do
@@ -50,22 +48,21 @@ part2 = do
 
 part1inner :: Input1 -> IO ()
 part1inner input = do
-  -- print input
   print . multiplyStats . snd $ processN 1000 input
 
 part2inner :: Input2 -> IO ()
 part2inner input = do
-  print input
+  print . processTillRx $ input
 
 type Input1 = Circuit
 
-type Input2 = ()
+type Input2 = Input1
 
 parseInput1 :: Parser Input1
 parseInput1 = parseCircuit
 
 parseInput2 :: Parser Input2
-parseInput2 = return ()
+parseInput2 = parseInput1
 
 data Circuit = Circuit
   { connects :: M.Map Label Targets,
@@ -176,13 +173,30 @@ togglePulse Low = High
 togglePulse High = Low
 
 process :: Circuit -> (Circuit, (Int, Int))
-process crct = go crct (0, 0) [(Low, "", "broadcaster")]
+process crct = go crct (0, 0) [startPulse]
   where
     go :: Circuit -> (Int, Int) -> [(Pulse, Label, Label)] -> (Circuit, (Int, Int))
     go c stats [] = (c, stats)
     go c stats ((pls, src, trgt) : rest) = go nextC (countPulse pls stats) (rest ++ newPulses)
       where
         (nextC, newPulses) = sendPulse c pls src trgt
+
+startPulse :: (Pulse, Label, Label)
+startPulse = (Low, "", "broadcaster")
+
+-- process until low pulse to "rx"
+processTillRx :: Circuit -> Int
+processTillRx = go 1 [startPulse]
+  where
+    go :: Int -> [(Pulse, Label, Label)] -> Circuit -> Int
+    go n [] c = traceShow (n+1) $ go (n+1) [startPulse] c
+    go n ((Low, _, "rx"):_) _ = n
+    go n ((pls, src, trgt):rest) c = go n (traceLength (rest ++ newPulses)) nextC
+      where
+        (nextC, newPulses) = sendPulse c pls src trgt
+        -- traceLength l = trace (replicate (length l) '.') l
+        traceLength = id
+
 
 processN :: Int -> Circuit -> (Circuit, (Int, Int))
 processN = go (0, 0)

@@ -1,0 +1,27 @@
+Done "" ("467..114..\n...*......\n..35..633.\n......#...\n617*......\n.....+.58.\n..592.....\n......755.\n...$.*....\n.664.598..\n",
+SchematicS {
+    scanCurrentCol = 0,
+    scanCurrentRow = 10,
+    scanCurrentNumber = 0,
+    symbols = [
+        SymbolS {symRow = 8, symCol = 5, symbol = '*'},
+        SymbolS {symRow = 8, symCol = 3, symbol = '$'},
+        SymbolS {symRow = 5, symCol = 5, symbol = '+'},
+        SymbolS {symRow = 4, symCol = 3, symbol = '*'},
+        SymbolS {symRow = 3, symCol = 6, symbol = '#'},
+        SymbolS {symRow = 1, symCol = 3, symbol = '*'},
+    ],
+    numbers = [
+        NumberS {numRow = 9, numColStart = 5, numColStop = 7, value = 598},
+        NumberS {numRow = 9, numColStart = 1, numColStop = 3, value = 664},
+        NumberS {numRow = 7, numColStart = 6, numColStop = 8, value = 755},
+        NumberS {numRow = 6, numColStart = 2, numColStop = 4, value = 592},
+        NumberS {numRow = 5, numColStart = 7, numColStop = 8, value = 58},
+        NumberS {numRow = 4, numColStart = 1, numColStop = 3, value = 617},
+        NumberS {numRow = 2, numColStart = 6, numColStop = 8, value = 633},
+        NumberS {numRow = 2, numColStart = 2, numColStop = 3, value = 35},
+        NumberS {numRow = 0, numColStart = 5, numColStop = 7, value = 114},
+        NumberS {numRow = 0, numColStart = 0, numColStop = 2, value = 467}
+    ]
+})
+
